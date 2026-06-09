@@ -3,7 +3,7 @@
 ## Overview
 The VS Code Profiles Distributor is a project designed to streamline the management and distribution of Visual Studio Code profiles. It allows users to maintain a consistent development environment across different programming languages by providing tailored profiles for Python, C/C++, and JavaScript/TypeScript, all based on a minimal default configuration.
 
-The tool provides a unified CLI built with TypeScript that safely merges settings and intelligently applies profiles to your local VS Code setup, automatically detecting your OS to place configuration files in the appropriate directories and executing extension installation commands.
+The tool provides a unified, **interactive CLI** built with TypeScript and `inquirer` that safely manages settings, automatically installs extensions, and elegantly propagates default configurations across your entire profile suite.
 
 ## Project Structure
 ```
@@ -14,7 +14,7 @@ vscode-profiles-distributor
 │   ├── C C++.code-profile          # C/C++ specific settings and extensions
 │   └── JavaScript TypeScript.code-profile # JavaScript/TypeScript specific settings and extensions
 ├── src
-│   └── index.ts                    # Unified CLI application
+│   └── index.ts                    # Unified interactive CLI application
 ├── .gitignore                      # Files and directories to ignore by Git
 ├── package.json                    # npm configuration file
 ├── tsconfig.json                   # TypeScript configuration file
@@ -35,20 +35,29 @@ To get started with the VS Code Profiles Distributor, follow these steps:
    npm install
    ```
 
-3. **Synchronize Profiles**
-   If you have updated the `Default.code-profile` or any specific profile, you can deep merge the default settings with all other profiles to keep them up to date:
+3. **Launch the Interactive CLI**
+   Instead of remembering multiple commands, simply start the tool:
    ```bash
-   npm run sync
+   npm start
    ```
 
-4. **Apply a Profile**
-   Apply a specific profile to your local VS Code installation. This will intelligently overwrite your `settings.json`, `keybindings.json`, and automatically run the CLI commands to install all necessary extensions:
-   ```bash
-   npm run apply -- "C C++"
-   ```
-   *(Replace `"C C++"` with the name of the profile you want to apply).*
+## Interactive Features
 
-## Profiles
+When you run `npm start`, you will be greeted by an interactive terminal menu:
+
+### 1. Apply a Profile to VS Code
+Select this to push a specific profile to your actual, running VS Code setup on your computer. You will be prompted to choose a profile (e.g. `Python`, `C C++`, or `Default`).
+
+Once selected, you must choose an application mode:
+- **Sync**: Safely merges the selected profile's settings with your *existing* VS Code settings. It keeps all of your currently installed extensions and only adds new ones defined by the profile.
+- **Replace**: Acts as a fresh start. It aggressively uninstalls *all* currently installed extensions in your VS Code editor, completely overwrites your local settings, and installs *only* the extensions defined in your selected profile. This is ideal when migrating to a brand-new machine or attempting to clean up a cluttered editor.
+
+### 2. Sync all Profiles with Default Profile
+Your `Default.code-profile` acts as a "Base Template" containing your favorite font sizes, color themes, and standard extensions (like Prettier).
+
+Selecting this option takes the configurations inside `Default.code-profile` and dynamically injects/merges them into `Python.code-profile`, `C C++.code-profile`, and all other files in your `profiles/` directory. If you change a universal setting in the Default profile, this command propagates it everywhere instantly.
+
+## Profiles Included
 - **Default Profile**: Contains essential settings and extensions common to all profiles.
 - **Python Profile**: Extends the Default profile with Python-specific configurations, including linting and formatting.
 - **C/C++ Profile**: Extends the Default profile with settings tailored for C/C++ development, including IntelliSense and formatting options.
