@@ -3,6 +3,8 @@
 ## Overview
 The VS Code Profiles Distributor is a project designed to streamline the management and distribution of Visual Studio Code profiles. It allows users to maintain a consistent development environment across different programming languages by providing tailored profiles for Python, C/C++, and JavaScript/TypeScript, all based on a minimal default configuration.
 
+The tool provides a unified CLI built with TypeScript that safely merges settings and intelligently applies profiles to your local VS Code setup, automatically detecting your OS to place configuration files in the appropriate directories and executing extension installation commands.
+
 ## Project Structure
 ```
 vscode-profiles-distributor
@@ -12,36 +14,39 @@ vscode-profiles-distributor
 │   ├── C C++.code-profile          # C/C++ specific settings and extensions
 │   └── JavaScript TypeScript.code-profile # JavaScript/TypeScript specific settings and extensions
 ├── src
-│   ├── index.ts                    # Entry point for the application
-│   ├── syncProfiles.ts             # Logic for synchronizing profiles
-│   └── utils.ts                    # Utility functions for profile management
-├── scripts
-│   └── apply-profile.sh             # Shell script to apply profiles
-├── .gitignore                       # Files and directories to ignore by Git
-├── package.json                     # npm configuration file
+│   └── index.ts                    # Unified CLI application
+├── .gitignore                      # Files and directories to ignore by Git
+├── package.json                    # npm configuration file
 ├── tsconfig.json                   # TypeScript configuration file
-└── README.md                        # Project documentation
+└── README.md                       # Project documentation
 ```
 
 ## Getting Started
 To get started with the VS Code Profiles Distributor, follow these steps:
 
 1. **Clone the Repository**
-   ```
+   ```bash
    git clone <repository-url>
    cd vscode-profiles-distributor
    ```
 
 2. **Install Dependencies**
-   ```
+   ```bash
    npm install
    ```
 
-3. **Apply a Profile**
-   Use the provided shell script to apply a specific profile to your VS Code setup:
+3. **Synchronize Profiles**
+   If you have updated the `Default.code-profile` or any specific profile, you can deep merge the default settings with all other profiles to keep them up to date:
+   ```bash
+   npm run sync
    ```
-   ./scripts/apply-profile.sh <profile-name>
+
+4. **Apply a Profile**
+   Apply a specific profile to your local VS Code installation. This will intelligently overwrite your `settings.json`, `keybindings.json`, and automatically run the CLI commands to install all necessary extensions:
+   ```bash
+   npm run apply -- "C C++"
    ```
+   *(Replace `"C C++"` with the name of the profile you want to apply).*
 
 ## Profiles
 - **Default Profile**: Contains essential settings and extensions common to all profiles.
