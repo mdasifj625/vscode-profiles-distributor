@@ -223,13 +223,13 @@ async function launchApplyInteractive(dir: string) {
 
     const answers = await inquirer.prompt([
         {
-            type: 'list',
+            type: 'select',
             name: 'selectedProfile',
             message: 'Which profile do you want to apply?',
             choices: files
         },
         {
-            type: 'list',
+            type: 'select',
             name: 'mode',
             message: 'Do you want to Sync or Replace?',
             choices: [
@@ -245,7 +245,7 @@ async function launchApplyInteractive(dir: string) {
 async function launchMainMenu() {
     const answer = await inquirer.prompt([
         {
-            type: 'list',
+            type: 'select',
             name: 'action',
             message: 'Welcome to VS Code Profiles Distributor! What would you like to do?',
             choices: [
