@@ -174,6 +174,42 @@ function Sync-AllProfiles {
     Write-Color "All profiles synchronized!`n" "Green"
 }
 
+function Show-Menu {
+    param($Title, $Options)
+    $cur = 0
+    Write-Color "`n$Title" "Cyan"
+    
+    $startCursorY = [console]::CursorTop
+    $Host.UI.RawUI.CursorSize = 0 # Hide cursor if supported, ignore if not
+
+    while ($true) {
+        [console]::SetCursorPosition(0, $startCursorY)
+        for ($i=0; $i -lt $Options.Count; $i++) {
+            # Clear line
+            Write-Host (" " * 80) -NoNewline
+            [console]::SetCursorPosition(0, [console]::CursorTop)
+            
+            if ($i -eq $cur) {
+                Write-Host "  > $($Options[$i])" -ForegroundColor Green
+            } else {
+                Write-Host "    $($Options[$i])"
+            }
+        }
+        
+        $key = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+        if ($key.VirtualKeyCode -eq 38) { # Up
+            $cur--
+            if ($cur -lt 0) { $cur = $Options.Count - 1 }
+        } elseif ($key.VirtualKeyCode -eq 40) { # Down
+            $cur++
+            if ($cur -ge $Options.Count) { $cur = 0 }
+        } elseif ($key.VirtualKeyCode -eq 13) { # Enter
+            $Host.UI.RawUI.CursorSize = 25
+            return $cur
+        }
+    }
+}
+
 function Interactive-Apply {
     $profileFiles = Get-ChildItem -Path $ProfilesDir -Filter "*.code-profile"
     if ($profileFiles.Count -eq 0) {
@@ -181,46 +217,34 @@ function Interactive-Apply {
         exit 1
     }
 
-    Write-Color "`nWhich profile do you want to apply?" "Cyan"
-    for ($i = 0; $i -lt $profileFiles.Count; $i++) {
-        Write-Host "$($i + 1). $($profileFiles[$i].BaseName)"
-    }
-    
-    $choice = Read-Host "Select a profile (number)"
-    $idx = [int]$choice - 1
-    if ($idx -lt 0 -or $idx -ge $profileFiles.Count) {
-        Write-Color "Invalid selection." "Red"
-        return
-    }
-    $chosenProfile = $profileFiles[$idx].BaseName
+    $profileNames = @()
+    foreach ($p in $profileFiles) { $profileNames += $p.BaseName }
 
-    Write-Color "`nDo you want to Sync or Replace?" "Cyan"
-    Write-Host "1. Sync (Merges with current settings, keeps existing extensions)"
-    Write-Host "2. Replace (Uninstalls all current extensions, overwrites settings)"
-    
-    $modeChoice = Read-Host "Select a mode (number)"
-    $mode = ""
-    if ($modeChoice -eq "1") { $mode = "sync" }
-    elseif ($modeChoice -eq "2") { $mode = "replace" }
-    else {
-        Write-Color "Invalid selection." "Red"
-        return
-    }
+    $idx = Show-Menu -Title "Which profile do you want to apply?" -Options $profileNames
+    $chosenProfile = $profileNames[$idx]
 
+    $modeOptions = @(
+        "Sync (Merges with current settings, keeps existing extensions)",
+        "Replace (Uninstalls all current extensions, overwrites settings)"
+    )
+    $modeIdx = Show-Menu -Title "Do you want to Sync or Replace?" -Options $modeOptions
+    
+    $mode = if ($modeIdx -eq 0) { "sync" } else { "replace" }
+
+    Write-Host ""
     Apply-Profile -profileName $chosenProfile -mode $mode
 }
 
 while ($true) {
-    Write-Color "`nWhat would you like to do?" "Cyan"
-    Write-Host "1. Apply a Profile to VS Code"
-    Write-Host "2. Sync all Profiles with Default Profile"
-    Write-Host "3. Exit"
-    $mainChoice = Read-Host "Select an action (number)"
+    $mainOptions = @(
+        "Apply a Profile to VS Code",
+        "Sync all Profiles with Default Profile",
+        "Exit"
+    )
+    $mainIdx = Show-Menu -Title "What would you like to do?" -Options $mainOptions
 
-    switch ($mainChoice) {
-        "1" { Interactive-Apply }
-        "2" { Sync-AllProfiles }
-        "3" { Write-Host "Goodbye!"; exit 0 }
-        Default { Write-Color "Invalid option" "Red" }
-    }
+    Write-Host ""
+    if ($mainIdx -eq 0) { Interactive-Apply }
+    elseif ($mainIdx -eq 1) { Sync-AllProfiles }
+    elseif ($mainIdx -eq 2) { Write-Host "Goodbye!"; exit 0 }
 }

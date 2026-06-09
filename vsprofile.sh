@@ -192,6 +192,51 @@ sync_all_profiles() {
     echo -e "${GREEN}All profiles synchronized!${NC}\n"
 }
 
+# Arrow Key Menu Function
+arrow_menu() {
+    local prompt="$1" outvar="$2"
+    shift 2
+    local options=("$@")
+    local cur=0
+    local count=${#options[@]}
+    local key
+
+    tput civis # hide cursor
+    echo -e "${CYAN}$prompt${NC}"
+    
+    # Save cursor position
+    tput sc
+
+    while true; do
+        tput rc # restore cursor position
+        for ((i=0; i<count; i++)); do
+            # clear line
+            echo -en "\e[2K\r"
+            if [ "$i" -eq "$cur" ]; then
+                echo -e "  ${GREEN}❯ ${options[$i]}${NC}"
+            else
+                echo -e "    ${options[$i]}"
+            fi
+        done
+        
+        read -rsn1 key
+        if [[ $key == $'\x1b' ]]; then
+            read -rsn2 key
+            if [[ $key == "[A" ]]; then # Up
+                ((cur--))
+                ((cur < 0)) && cur=$((count - 1))
+            elif [[ $key == "[B" ]]; then # Down
+                ((cur++))
+                ((cur >= count)) && cur=0
+            fi
+        elif [[ $key == "" ]]; then # Enter
+            break
+        fi
+    done
+    tput cnorm # restore cursor
+    eval $outvar="${cur}"
+}
+
 interactive_apply() {
     # Gather profiles
     profiles=()
@@ -206,49 +251,30 @@ interactive_apply() {
         exit 1
     fi
 
-    echo -e "\n${CYAN}Which profile do you want to apply?${NC}"
-    PS3="Select a profile (number): "
-    select chosen_profile in "${profiles[@]}"; do
-        if [[ -n "$chosen_profile" ]]; then
-            break
-        else
-            echo "Invalid selection."
-        fi
-    done
+    arrow_menu "Which profile do you want to apply?" chosen_idx "${profiles[@]}"
+    local chosen_profile="${profiles[$chosen_idx]}"
 
-    echo -e "\n${CYAN}Do you want to Sync or Replace?${NC}"
-    echo "1) Sync (Merges with current settings, keeps existing extensions)"
-    echo "2) Replace (Uninstalls all current extensions, overwrites settings)"
-    PS3="Select a mode (number): "
-    
     local modes=("sync" "replace")
-    select chosen_mode in "${modes[@]}"; do
-        if [[ -n "$chosen_mode" ]]; then
-            apply_profile "$chosen_profile" "$chosen_mode"
-            break
-        else
-            echo "Invalid selection."
-        fi
-    done
+    local mode_labels=("Sync (Merges with current settings, keeps existing extensions)" "Replace (Uninstalls all current extensions, overwrites settings)")
+    
+    echo ""
+    arrow_menu "Do you want to Sync or Replace?" mode_idx "${mode_labels[@]}"
+    local chosen_mode="${modes[$mode_idx]}"
+    
+    echo ""
+    apply_profile "$chosen_profile" "$chosen_mode"
 }
 
 # Main Menu
-PS3="Select an action (number): "
-options=("Apply a Profile to VS Code" "Sync all Profiles with Default Profile" "Exit")
-select opt in "${options[@]}"; do
-    case $opt in
-        "Apply a Profile to VS Code")
-            interactive_apply
-            break
-            ;;
-        "Sync all Profiles with Default Profile")
-            sync_all_profiles
-            break
-            ;;
-        "Exit")
-            echo "Goodbye!"
-            exit 0
-            ;;
-        *) echo "Invalid option $REPLY";;
+while true; do
+    options=("Apply a Profile to VS Code" "Sync all Profiles with Default Profile" "Exit")
+    arrow_menu "Select an action:" opt_idx "${options[@]}"
+    
+    echo ""
+    case $opt_idx in
+        0) interactive_apply ;;
+        1) sync_all_profiles ;;
+        2) echo "Goodbye!"; exit 0 ;;
     esac
+    echo ""
 done
