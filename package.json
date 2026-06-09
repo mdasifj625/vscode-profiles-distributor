@@ -1,0 +1,30 @@
+{
+  "name": "vscode-profiles-distributor",
+  "version": "1.0.0",
+  "description": "A tool to distribute and synchronize VS Code profiles across different development environments.",
+  "main": "src/index.ts",
+  "scripts": {
+    "start": "ts-node src/index.ts",
+    "apply": "bash scripts/apply-profile.sh"
+  },
+  "dependencies": {
+    "fs-extra": "^10.0.0",
+    "typescript": "^4.5.0"
+  },
+  "devDependencies": {
+    "@types/node": "^16.0.0",
+    "ts-node": "^10.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/vscode-profiles-distributor.git"
+  },
+  "keywords": [
+    "vscode",
+    "profiles",
+    "distribution",
+    "synchronization"
+  ],
+  "author": "Your Name",
+  "license": "MIT"
+}

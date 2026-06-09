@@ -1,0 +1,96 @@
+{
+	"name": "Python",
+	"settings": {
+		"workbench.colorTheme": "GitHub Dark Default",
+		"workbench.iconTheme": "material-icon-theme",
+		"editor.formatOnSave": true,
+		"editor.defaultFormatter": "ms-python.python",
+		"python.analysis.typeCheckingMode": "basic",
+		"python.analysis.autoSearchPaths": true,
+		"python.analysis.useLibraryCodeForTypes": true,
+		"python.linting.enabled": true,
+		"python.linting.flake8Enabled": true,
+		"python.linting.pylintEnabled": false,
+		"python.testing.pytestEnabled": true,
+		"python.testing.unittestEnabled": false,
+		"python.testing.nosetestsEnabled": false,
+		"editor.fontFamily": "'Cascadia Code', 'Fira Code', 'JetBrains Mono', Consolas, 'Courier New', monospace",
+		"editor.fontSize": 14,
+		"editor.lineHeight": 22,
+		"editor.letterSpacing": 0.5,
+		"editor.cursorBlinking": "phase",
+		"editor.smoothScrolling": true,
+		"editor.minimap.enabled": false,
+		"editor.wordWrap": "on",
+		"editor.renderWhitespace": "boundary",
+		"window.zoomLevel": 0,
+		"workbench.editor.openSideBySideDirection": "right"
+	},
+	"keybindings": [],
+	"extensions": {
+		"recommendations": [],
+		"unwantedRecommendations": [],
+		"extensions": [
+			{
+				"id": "github.github-vscode-theme",
+				"disabled": false
+			},
+			{
+				"id": "pkief.material-icon-theme",
+				"disabled": false
+			},
+			{
+				"id": "eamodio.gitlens",
+				"disabled": false
+			},
+			{
+				"id": "editorconfig.editorconfig",
+				"disabled": false
+			},
+			{
+				"id": "codezombiech.gitignore",
+				"disabled": false
+			},
+			{
+				"id": "github.copilot-chat",
+				"disabled": false
+			},
+			{
+				"id": "donjayamanne.python-environment-manager",
+				"disabled": false
+			},
+			{
+				"id": "donjayamanne.python-extension-pack",
+				"disabled": false
+			},
+			{
+				"id": "ms-python.debugpy",
+				"disabled": false
+			},
+			{
+				"id": "ms-python.python",
+				"disabled": false
+			},
+			{
+				"id": "ms-python.vscode-pylance",
+				"disabled": false
+			},
+			{
+				"id": "ms-python.vscode-python-envs",
+				"disabled": false
+			},
+			{
+				"id": "njpwerner.autodocstring",
+				"disabled": false
+			},
+			{
+				"id": "kevinrose.vsc-python-indent",
+				"disabled": false
+			},
+			{
+				"id": "hbenl.vscode-test-explorer",
+				"disabled": false
+			}
+		]
+	}
+}

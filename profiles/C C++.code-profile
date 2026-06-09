@@ -1,0 +1,76 @@
+{
+	"name": "C C++",
+	"settings": {
+		"workbench.colorTheme": "GitHub Dark Default",
+		"workbench.iconTheme": "material-icon-theme",
+		"editor.formatOnSave": true,
+		"C_Cpp.default.intelliSenseMode": "msvc-x64",
+		"C_Cpp.intelliSenseEngine": "Default",
+		"C_Cpp.formatting": "Default",
+		"files.associations": {
+			"*.tcc": "cpp"
+		},
+		"editor.fontFamily": "'Cascadia Code', 'Fira Code', 'JetBrains Mono', Consolas, 'Courier New', monospace",
+		"editor.fontSize": 14,
+		"editor.lineHeight": 22,
+		"editor.letterSpacing": 0.5,
+		"editor.cursorBlinking": "phase",
+		"editor.smoothScrolling": true,
+		"editor.minimap.enabled": false,
+		"editor.wordWrap": "on",
+		"editor.renderWhitespace": "boundary",
+		"window.zoomLevel": 0,
+		"workbench.editor.openSideBySideDirection": "right"
+	},
+	"keybindings": [],
+	"extensions": {
+		"recommendations": [],
+		"unwantedRecommendations": [],
+		"extensions": [
+			{
+				"id": "github.github-vscode-theme",
+				"disabled": false
+			},
+			{
+				"id": "pkief.material-icon-theme",
+				"disabled": false
+			},
+			{
+				"id": "eamodio.gitlens",
+				"disabled": false
+			},
+			{
+				"id": "editorconfig.editorconfig",
+				"disabled": false
+			},
+			{
+				"id": "codezombiech.gitignore",
+				"disabled": false
+			},
+			{
+				"id": "github.copilot-chat",
+				"disabled": false
+			},
+			{
+				"id": "ms-vscode.cmake-tools",
+				"disabled": false
+			},
+			{
+				"id": "ms-vscode.cpp-devtools",
+				"disabled": false
+			},
+			{
+				"id": "ms-vscode.cpptools-extension-pack",
+				"disabled": false
+			},
+			{
+				"id": "ms-vscode.cpptools-themes",
+				"disabled": false
+			},
+			{
+				"id": "phantom.gcc-md",
+				"disabled": false
+			}
+		]
+	}
+}
