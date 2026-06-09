@@ -44,10 +44,13 @@ if grep -qEi "(Microsoft|WSL)" /proc/version &> /dev/null; then
 fi
 
 if [ "$IS_WSL" = true ]; then
-    # In WSL, we want to target the Windows AppData for settings UI, 
-    # but extensions will install in WSL backend automatically via the code command.
-    WIN_USER=$(cmd.exe /c "echo %USERNAME%" 2>/dev/null | tr -d '\r')
-    USER_DATA_PATH="/mnt/c/Users/$WIN_USER/AppData/Roaming/Code/User"
+    WIN_APPDATA=$(cmd.exe /c "echo %APPDATA%" 2>/dev/null | tr -d '\r')
+    if command -v wslpath &> /dev/null; then
+        USER_DATA_PATH="$(wslpath "$WIN_APPDATA")/Code/User"
+    else
+        WIN_USER=$(cmd.exe /c "echo %USERNAME%" 2>/dev/null | tr -d '\r')
+        USER_DATA_PATH="/mnt/c/Users/$WIN_USER/AppData/Roaming/Code/User"
+    fi
     echo -e "${YELLOW}Detected WSL environment. Targeting Windows Settings at: $USER_DATA_PATH${NC}"
 elif [ "$(expr substr $(uname -s) 1 5)" == "MINGW" ] || [ "$(expr substr $(uname -s) 1 4)" == "MSYS" ]; then
     # Git Bash on Windows
@@ -170,9 +173,15 @@ sync_all_profiles() {
             
             # Deep merge settings, concat extensions and keybindings uniquely
             jq -s '
+                def get_exts:
+                    if . == null then []
+                    elif type == "array" then .
+                    elif type == "object" and (.extensions | type) == "array" then [.extensions[] | if type=="object" then .id else . end]
+                    else [] end;
+
                 .[0] * .[1] 
                 | .settings = ((.[0].settings // {}) * (.[1].settings // {}))
-                | .extensions = ((.[0].extensions // []) + (.[1].extensions // []) | unique)
+                | .extensions = ((.[0].extensions | get_exts) + (.[1].extensions | get_exts) | unique)
                 | .keybindings = ((.[0].keybindings // []) + (.[1].keybindings // []) | unique)
             ' "$default_file" "$profile_file" > "$temp_profile"
 
