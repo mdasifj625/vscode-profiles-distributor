@@ -31,11 +31,13 @@ The system is designed around a **"Base & Extension"** philosophy. You never hav
 chmod +x vsprofile.sh
 ./vsprofile.sh
 ```
+> **Note for WSL Users**: Running `vsprofile.sh` inside WSL will automatically detect both your **Windows host** and the **WSL instance**. It will apply settings and sync/replace extensions for both environments simultaneously, ensuring a consistent remote development experience.
 
 #### PowerShell (Windows)
 ```powershell
 .\vsprofile.ps1
 ```
+> **Note**: Running on native Windows (PowerShell or Git Bash) will only impact your Windows VS Code settings.
 
 ### Modes of Application
 

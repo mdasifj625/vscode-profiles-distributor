@@ -50,6 +50,7 @@
 		"pkief.material-icon-theme",
 		"redhat.vscode-yaml",
 		"streetsidesoftware.code-spell-checker",
-		"yzhang.markdown-all-in-one"
+		"yzhang.markdown-all-in-one",
+		"Gruntfuggly.todo-tree"
 	]
 }

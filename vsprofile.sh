@@ -37,39 +37,62 @@ if [ ! -d "$PROFILES_DIR" ]; then
     exit 1
 fi
 
-# Detect OS and set User Data Path
+# Detect OS and Populate Targets
+TARGETS_NAME=()
+TARGETS_USER_DATA_PATH=()
+TARGETS_CODE_CMD=()
+
 IS_WSL=false
 if grep -qEi "(Microsoft|WSL)" /proc/version &> /dev/null; then
     IS_WSL=true
 fi
 
 if [ "$IS_WSL" = true ]; then
+    echo -e "${YELLOW}Detected WSL environment. Targeting both Windows and WSL environments.${NC}"
+    
+    # Target 1: Windows
+    TARGETS_NAME+=("Windows")
     WIN_APPDATA=$(cmd.exe /c "echo %APPDATA%" 2>/dev/null | tr -d '\r')
-    if command -v wslpath &> /dev/null; then
-        USER_DATA_PATH="$(wslpath "$WIN_APPDATA")/Code/User"
+    if [ -n "$WIN_APPDATA" ] && command -v wslpath &> /dev/null; then
+        TARGETS_USER_DATA_PATH+=("$(wslpath "$WIN_APPDATA")/Code/User")
     else
         WIN_USER=$(cmd.exe /c "echo %USERNAME%" 2>/dev/null | tr -d '\r')
-        USER_DATA_PATH="/mnt/c/Users/$WIN_USER/AppData/Roaming/Code/User"
+        TARGETS_USER_DATA_PATH+=("/mnt/c/Users/$WIN_USER/AppData/Roaming/Code/User")
     fi
-    echo -e "${YELLOW}Detected WSL environment. Targeting Windows Settings at: $USER_DATA_PATH${NC}"
+    # Use code.exe to ensure we target the Windows side from WSL
+    if command -v code.exe &> /dev/null; then
+        TARGETS_CODE_CMD+=("code.exe")
+    else
+        TARGETS_CODE_CMD+=("code")
+    fi
+
+    # Target 2: WSL (Native Linux)
+    TARGETS_NAME+=("WSL")
+    TARGETS_USER_DATA_PATH+=("$HOME/.config/Code/User")
+    TARGETS_CODE_CMD+=("code")
 elif [ "$(expr substr $(uname -s) 1 5)" == "MINGW" ] || [ "$(expr substr $(uname -s) 1 4)" == "MSYS" ]; then
     # Git Bash on Windows
-    USER_DATA_PATH="$APPDATA/Code/User"
+    TARGETS_NAME+=("Windows")
+    TARGETS_USER_DATA_PATH+=("$APPDATA/Code/User")
+    TARGETS_CODE_CMD+=("code")
 elif [ "$(uname)" == "Darwin" ]; then
     # Mac
-    USER_DATA_PATH="$HOME/Library/Application Support/Code/User"
+    TARGETS_NAME+=("macOS")
+    TARGETS_USER_DATA_PATH+=("$HOME/Library/Application Support/Code/User")
+    TARGETS_CODE_CMD+=("code")
 else
     # Native Linux
-    USER_DATA_PATH="$HOME/.config/Code/User"
+    TARGETS_NAME+=("Linux")
+    TARGETS_USER_DATA_PATH+=("$HOME/.config/Code/User")
+    TARGETS_CODE_CMD+=("code")
 fi
 
-SETTINGS_PATH="$USER_DATA_PATH/settings.json"
-KEYBINDINGS_PATH="$USER_DATA_PATH/keybindings.json"
-
-# Create directories if they don't exist
-mkdir -p "$USER_DATA_PATH"
-[ ! -f "$SETTINGS_PATH" ] && echo "{}" > "$SETTINGS_PATH"
-[ ! -f "$KEYBINDINGS_PATH" ] && echo "[]" > "$KEYBINDINGS_PATH"
+# Initialize target directories and files
+for i in "${!TARGETS_NAME[@]}"; do
+    mkdir -p "${TARGETS_USER_DATA_PATH[$i]}"
+    [ ! -f "${TARGETS_USER_DATA_PATH[$i]}/settings.json" ] && echo "{}" > "${TARGETS_USER_DATA_PATH[$i]}/settings.json"
+    [ ! -f "${TARGETS_USER_DATA_PATH[$i]}/keybindings.json" ] && echo "[]" > "${TARGETS_USER_DATA_PATH[$i]}/keybindings.json"
+done
 
 # Function to get extensions from a profile safely
 get_profile_extensions() {
@@ -124,47 +147,57 @@ apply_profile() {
         cat "$profile_file" > "$merged_profile"
     fi
 
-    if [ "$mode" == "replace" ]; then
-        echo -e "${YELLOW}Uninstalling all current extensions...${NC}"
-        code --list-extensions | while read -r ext; do
+    # Loop through each target (Windows and/or WSL/Linux/Mac)
+    for i in "${!TARGETS_NAME[@]}"; do
+        local TARGET_NAME="${TARGETS_NAME[$i]}"
+        local DATA_PATH="${TARGETS_USER_DATA_PATH[$i]}"
+        local CODE_CMD="${TARGETS_CODE_CMD[$i]}"
+        local SETTINGS_PATH="$DATA_PATH/settings.json"
+        local KEYBINDINGS_PATH="$DATA_PATH/keybindings.json"
+
+        echo -e "\n${YELLOW}Targeting Environment: $TARGET_NAME...${NC}"
+
+        if [ "$mode" == "replace" ]; then
+            echo -e "${YELLOW}[$TARGET_NAME] Uninstalling all current extensions...${NC}"
+            $CODE_CMD --list-extensions | while read -r ext; do
+                if [ -n "$ext" ]; then
+                    echo "[$TARGET_NAME] Uninstalling: $ext"
+                    $CODE_CMD --uninstall-extension "$ext" --force >/dev/null 2>&1
+                fi
+            done
+
+            get_profile_settings "$merged_profile" > "$SETTINGS_PATH"
+            get_profile_keybindings "$merged_profile" > "$KEYBINDINGS_PATH"
+            echo -e "${GREEN}[$TARGET_NAME] Settings and Keybindings replaced.${NC}"
+            
+        elif [ "$mode" == "sync" ]; then
+            # Merge settings (Deep Merge)
+            local temp_settings=$(mktemp)
+            [ ! -s "$SETTINGS_PATH" ] && echo "{}" > "$SETTINGS_PATH"
+            jq -s '(.[0] // {}) * (.[1] // {})' "$SETTINGS_PATH" <(get_profile_settings "$merged_profile") > "$temp_settings"
+            mv "$temp_settings" "$SETTINGS_PATH"
+            
+            # Merge keybindings (Array Concat & Unique)
+            local temp_keybindings=$(mktemp)
+            [ ! -s "$KEYBINDINGS_PATH" ] && echo "[]" > "$KEYBINDINGS_PATH"
+            jq -s '((.[0] // []) + (.[1] // [])) | unique' "$KEYBINDINGS_PATH" <(get_profile_keybindings "$merged_profile") > "$temp_keybindings"
+            mv "$temp_keybindings" "$KEYBINDINGS_PATH"
+            
+            echo -e "${GREEN}[$TARGET_NAME] Settings and Keybindings merged safely.${NC}"
+        fi
+
+        # Install extensions
+        echo -e "${YELLOW}[$TARGET_NAME] Installing extensions...${NC}"
+        get_profile_extensions "$merged_profile" | while read -r ext; do
             if [ -n "$ext" ]; then
-                echo "Uninstalling: $ext"
-                code --uninstall-extension "$ext" --force >/dev/null 2>&1
+                echo "[$TARGET_NAME] Installing: $ext"
+                $CODE_CMD --install-extension "$ext" --force >/dev/null 2>&1
             fi
         done
-
-        get_profile_settings "$merged_profile" > "$SETTINGS_PATH"
-        get_profile_keybindings "$merged_profile" > "$KEYBINDINGS_PATH"
-        echo -e "${GREEN}Settings and Keybindings replaced.${NC}"
-        
-    elif [ "$mode" == "sync" ]; then
-        # Merge settings (Deep Merge)
-        local temp_settings=$(mktemp)
-        # Ensure current settings is valid JSON
-        [ ! -s "$SETTINGS_PATH" ] && echo "{}" > "$SETTINGS_PATH"
-        jq -s '(.[0] // {}) * (.[1] // {})' "$SETTINGS_PATH" <(get_profile_settings "$merged_profile") > "$temp_settings"
-        mv "$temp_settings" "$SETTINGS_PATH"
-        
-        # Merge keybindings (Array Concat & Unique)
-        local temp_keybindings=$(mktemp)
-        [ ! -s "$KEYBINDINGS_PATH" ] && echo "[]" > "$KEYBINDINGS_PATH"
-        jq -s '((.[0] // []) + (.[1] // [])) | unique' "$KEYBINDINGS_PATH" <(get_profile_keybindings "$merged_profile") > "$temp_keybindings"
-        mv "$temp_keybindings" "$KEYBINDINGS_PATH"
-        
-        echo -e "${GREEN}Settings and Keybindings merged safely.${NC}"
-    fi
-
-    # Install extensions
-    echo -e "${YELLOW}Installing extensions...${NC}"
-    get_profile_extensions "$merged_profile" | while read -r ext; do
-        if [ -n "$ext" ]; then
-            echo "Installing: $ext"
-            code --install-extension "$ext" --force >/dev/null 2>&1
-        fi
     done
 
     rm "$merged_profile"
-    echo -e "${GREEN}Profile '$profile_name' successfully applied!${NC}\n"
+    echo -e "${GREEN}Profile '$profile_name' successfully applied to all targets!${NC}\n"
 }
 
 # Arrow Key Menu Function
