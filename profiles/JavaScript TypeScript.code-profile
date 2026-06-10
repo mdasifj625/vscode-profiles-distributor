@@ -59,7 +59,6 @@
 		"meganrogge.template-string-converter",
 		"standard.vscode-standard",
 		"amodio.tsl-problem-matcher",
-		"eg2.vscode-npm-script",
 		"antfu.browse-lite",
 		"yoavbls.pretty-ts-errors",
 		"Prisma.prisma",
