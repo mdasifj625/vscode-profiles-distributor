@@ -1,59 +1,67 @@
 # VS Code Profiles Distributor
 
-## Overview
-The VS Code Profiles Distributor is a lightweight, dependency-free toolkit to streamline the management and distribution of Visual Studio Code profiles. 
+A lightweight tool to manage and distribute VS Code profiles across different environments. This project uses an **automatic inheritance model** to ensure a clean, maintainable, and non-redundant configuration.
 
-It completely removes the overhead of Node.js and TypeScript, using purely native **Bash** and **PowerShell** scripts. It provides an interactive terminal UI while natively understanding your environment, automatically bridging the gap between Windows and WSL setups seamlessly!
+## 🏗️ Architecture: Automatic Inheritance
 
-## Project Structure
+The system is designed around a **"Base & Extension"** philosophy. You never have to manually duplicate settings.
+
+### How it works:
+1.  **Default Profile (`profiles/Default.code-profile`)**: This is your "Source of Truth." It contains universal settings (fonts, themes, terminal) and common extensions (GitLens, EditorConfig, Material Icons).
+2.  **Domain Profiles**: Profiles like `Python` or `JavaScript TypeScript` contain **only** domain-specific logic.
+3.  **The Auto-Merge**: When you apply any profile other than `Default`, the script automatically:
+    *   Loads all settings and extensions from `Default`.
+    *   Overlays the specific domain profile on top.
+    *   Installs the union of both extension lists.
+
+**Benefit**: Change your font size or theme in `Default.code-profile`, and it automatically updates across **all** your specialized profiles next time you apply them.
+
+## 🚀 Getting Started
+
+### Prerequisites
+
+-   **VS Code**: The `code` command must be in your PATH.
+-   **Linux/WSL/macOS**: `jq` is required for JSON processing.
+-   **Windows**: PowerShell 5.1+ or higher.
+
+### Usage
+
+#### Bash (Linux, WSL, macOS, Git Bash)
+```bash
+chmod +x vsprofile.sh
+./vsprofile.sh
 ```
-vscode-profiles-distributor
-├── profiles
-│   ├── Default.code-profile        # Minimal setup for all profiles
-│   ├── Python.code-profile         # Python-specific settings and extensions
-│   ├── C C++.code-profile          # C/C++ specific settings and extensions
-│   └── JavaScript TypeScript.code-profile # JavaScript/TypeScript specific settings and extensions
-├── vsprofile.sh                    # Interactive Bash application (Linux/Mac/WSL)
-├── vsprofile.ps1                   # Interactive PowerShell application (Windows Native)
-├── .gitignore                      # Files and directories to ignore by Git
-└── README.md                       # Project documentation
+
+#### PowerShell (Windows)
+```powershell
+.\vsprofile.ps1
 ```
 
-## Getting Started
+### Modes of Application
 
-### For Linux / Mac / WSL
-The bash script (`vsprofile.sh`) relies on `jq` to reliably deep-merge JSON configurations without breaking your settings.
-1. The script will attempt to automatically install `jq` for you if you run it on Ubuntu/WSL.
-2. Run the script:
-   ```bash
-   ./vsprofile.sh
-   ```
+1.  **Sync (Recommended)**: Deep merges the selected profile (merged with `Default`) with your current VS Code settings. It preserves your existing manual configurations while adding the profile's tools.
+2.  **Replace**: A destructive operation. It **uninstalls all current extensions** and overwrites settings completely with the selected profile (merged with `Default`). Perfect for resetting a machine to a specific dev environment.
 
-### For Windows (Native PowerShell)
-If you are on Windows and don't want to install `jq` or use Git Bash, use the native PowerShell equivalent (`vsprofile.ps1`)! It uses Windows' built-in JSON parsers with zero dependencies.
-1. Open PowerShell and run:
-   ```powershell
-   .\vsprofile.ps1
-   ```
-*(Note: You may need to run `Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass` if your system restricts executing local PowerShell scripts).*
+## 📂 Profile Structure
 
----
+Profiles are stored in `profiles/` as `.code-profile` files. Keep them lean!
 
-## Interactive Features
-Running either script presents a beautiful, selection-based interactive menu directly in your terminal:
+```json
+{
+  "name": "Python",
+  "settings": {
+    "editor.defaultFormatter": "charliermarsh.ruff"
+  },
+  "extensions": [
+    "ms-python.python",
+    "charliermarsh.ruff"
+  ]
+}
+```
 
-### 1. Apply a Profile to VS Code
-Select this to push a specific profile to your actual, running VS Code setup on your computer. You will be prompted to choose a profile (e.g., `Python`, `C C++`, or `Default`).
+## 🛠️ Included Profiles
 
-Once selected, you choose an application mode:
-- **Sync**: Safely deep-merges the selected profile's settings with your *existing* VS Code settings. It keeps your installed extensions and only adds new ones.
-- **Replace**: Acts as a fresh start. It aggressively uninstalls *all* currently installed extensions, completely overwrites your local settings, and installs *only* the extensions defined in your selected profile.
-
-### 2. Sync all Profiles with Default Profile
-Selecting this option takes the configurations inside `Default.code-profile` and dynamically deep-merges them into `Python.code-profile`, `C C++.code-profile`, and all other files in your `profiles/` directory.
-
-### Windows & WSL Interoperability
-If you run the bash script inside **WSL**, it automatically detects the Microsoft subsystem layer. It intelligently routes your settings updates specifically to your Windows UI (`AppData/Roaming/Code/User`) using `wslpath` so your VS Code GUI updates instantly, while simultaneously routing the `code --install-extension` commands to the WSL backend, guaranteeing extensions like C++ and Python are installed right where they need to be!
-
-## License
-This project is licensed under the MIT License.
+-   **Default**: Base UI, terminal, and git configuration.
+-   **JavaScript TypeScript**: Full-stack support (Node, React, Next.js, Prisma, Tailwind).
+-   **Python**: Data science (Jupyter), modern linting (Ruff), and web frameworks.
+-   **C C++**: Advanced IntelliSense (Clangd), CMake, and Doxygen.

@@ -100,12 +100,32 @@ apply_profile() {
     local profile_name=$1
     local mode=$2
     local profile_file="$PROFILES_DIR/$profile_name.code-profile"
+    local default_file="$PROFILES_DIR/Default.code-profile"
 
     echo -e "\n${CYAN}Applying Profile: $profile_name in $mode mode...${NC}"
 
+    # Prepare merged profile data (Inherit from Default if not applying Default itself)
+    local merged_profile=$(mktemp)
+    if [ "$profile_name" != "Default" ] && [ -f "$default_file" ]; then
+        echo -e "${YELLOW}Merging with Default profile...${NC}"
+        jq -s '
+            def get_exts:
+                if . == null then []
+                elif type == "array" then .
+                elif type == "object" and (.extensions | type) == "array" then [.extensions[] | if type=="object" then .id else . end]
+                else [] end;
+
+            (.[0] // {}) * (.[1] // {})
+            | .settings = ((.[0].settings // {}) * (.[1].settings // {}))
+            | .extensions = ((.[0].extensions | get_exts) + (.[1].extensions | get_exts) | unique)
+            | .keybindings = ((.[0].keybindings // []) + (.[1].keybindings // []) | unique)
+        ' "$default_file" "$profile_file" > "$merged_profile"
+    else
+        cat "$profile_file" > "$merged_profile"
+    fi
+
     if [ "$mode" == "replace" ]; then
         echo -e "${YELLOW}Uninstalling all current extensions...${NC}"
-        # Fetch current installed extensions and uninstall them
         code --list-extensions | while read -r ext; do
             if [ -n "$ext" ]; then
                 echo "Uninstalling: $ext"
@@ -113,20 +133,22 @@ apply_profile() {
             fi
         done
 
-        # Overwrite settings and keybindings completely
-        get_profile_settings "$profile_file" > "$SETTINGS_PATH"
-        get_profile_keybindings "$profile_file" > "$KEYBINDINGS_PATH"
+        get_profile_settings "$merged_profile" > "$SETTINGS_PATH"
+        get_profile_keybindings "$merged_profile" > "$KEYBINDINGS_PATH"
         echo -e "${GREEN}Settings and Keybindings replaced.${NC}"
         
     elif [ "$mode" == "sync" ]; then
         # Merge settings (Deep Merge)
         local temp_settings=$(mktemp)
-        jq -s '.[0] * .[1]' "$SETTINGS_PATH" <(get_profile_settings "$profile_file") > "$temp_settings"
+        # Ensure current settings is valid JSON
+        [ ! -s "$SETTINGS_PATH" ] && echo "{}" > "$SETTINGS_PATH"
+        jq -s '(.[0] // {}) * (.[1] // {})' "$SETTINGS_PATH" <(get_profile_settings "$merged_profile") > "$temp_settings"
         mv "$temp_settings" "$SETTINGS_PATH"
         
         # Merge keybindings (Array Concat & Unique)
         local temp_keybindings=$(mktemp)
-        jq -s '(.[0] + .[1]) | unique' "$KEYBINDINGS_PATH" <(get_profile_keybindings "$profile_file") > "$temp_keybindings"
+        [ ! -s "$KEYBINDINGS_PATH" ] && echo "[]" > "$KEYBINDINGS_PATH"
+        jq -s '((.[0] // []) + (.[1] // [])) | unique' "$KEYBINDINGS_PATH" <(get_profile_keybindings "$merged_profile") > "$temp_keybindings"
         mv "$temp_keybindings" "$KEYBINDINGS_PATH"
         
         echo -e "${GREEN}Settings and Keybindings merged safely.${NC}"
@@ -134,62 +156,15 @@ apply_profile() {
 
     # Install extensions
     echo -e "${YELLOW}Installing extensions...${NC}"
-    get_profile_extensions "$profile_file" | while read -r ext; do
+    get_profile_extensions "$merged_profile" | while read -r ext; do
         if [ -n "$ext" ]; then
             echo "Installing: $ext"
             code --install-extension "$ext" --force >/dev/null 2>&1
         fi
     done
 
+    rm "$merged_profile"
     echo -e "${GREEN}Profile '$profile_name' successfully applied!${NC}\n"
-}
-
-sync_all_profiles() {
-    local default_file="$PROFILES_DIR/Default.code-profile"
-    if [ ! -f "$default_file" ]; then
-        echo -e "${RED}Error: Default.code-profile not found!${NC}"
-        exit 1
-    fi
-
-    echo -e "\n${CYAN}Synchronizing all profiles with Default profile...${NC}"
-    
-    for profile_file in "$PROFILES_DIR"/*.code-profile; do
-        local filename=$(basename "$profile_file")
-        if [ "$filename" != "Default.code-profile" ]; then
-            
-            # Skip empty files
-            if [ ! -s "$profile_file" ]; then
-                echo -e "${YELLOW}Skipping empty profile: $filename${NC}"
-                continue
-            fi
-            
-            # Validate JSON
-            if ! jq e . "$profile_file" >/dev/null 2>&1; then
-                echo -e "${RED}Skipping invalid JSON profile: $filename${NC}"
-                continue
-            fi
-
-            local temp_profile=$(mktemp)
-            
-            # Deep merge settings, concat extensions and keybindings uniquely
-            jq -s '
-                def get_exts:
-                    if . == null then []
-                    elif type == "array" then .
-                    elif type == "object" and (.extensions | type) == "array" then [.extensions[] | if type=="object" then .id else . end]
-                    else [] end;
-
-                .[0] * .[1] 
-                | .settings = ((.[0].settings // {}) * (.[1].settings // {}))
-                | .extensions = ((.[0].extensions | get_exts) + (.[1].extensions | get_exts) | unique)
-                | .keybindings = ((.[0].keybindings // []) + (.[1].keybindings // []) | unique)
-            ' "$default_file" "$profile_file" > "$temp_profile"
-
-            mv "$temp_profile" "$profile_file"
-            echo -e "${GREEN}Synchronized: $filename${NC}"
-        fi
-    done
-    echo -e "${GREEN}All profiles synchronized!${NC}\n"
 }
 
 # Arrow Key Menu Function
@@ -267,14 +242,13 @@ interactive_apply() {
 
 # Main Menu
 while true; do
-    options=("Apply a Profile to VS Code" "Sync all Profiles with Default Profile" "Exit")
+    options=("Apply a Profile to VS Code" "Exit")
     arrow_menu "Select an action:" opt_idx "${options[@]}"
     
     echo ""
     case $opt_idx in
         0) interactive_apply ;;
-        1) sync_all_profiles ;;
-        2) echo "Goodbye!"; exit 0 ;;
+        1) echo "Goodbye!"; exit 0 ;;
     esac
     echo ""
 done

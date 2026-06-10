@@ -86,13 +86,29 @@ function Apply-Profile {
     param ($profileName, $mode)
     
     $profileFile = Join-Path $ProfilesDir "$profileName.code-profile"
-    if (-not (Test-Path $profileFile)) {
-        $profileFile = Join-Path $ProfilesDir $profileName
-    }
+    $defaultFile = Join-Path $ProfilesDir "Default.code-profile"
 
     Write-Color "`nApplying Profile: $profileName in $mode mode..." "Cyan"
     
     $profileData = Get-Content -Raw -Path $profileFile | ConvertFrom-Json
+    
+    # Inherit from Default if not applying Default itself
+    if ($profileName -ne "Default" -and (Test-Path $defaultFile)) {
+        Write-Color "Merging with Default profile..." "Yellow"
+        $defaultData = Get-Content -Raw -Path $defaultFile | ConvertFrom-Json
+        
+        $mergedSettings = Merge-Json -target $defaultData.settings -source $profileData.settings
+        $mergedKb = Merge-Json -target $defaultData.keybindings -source $profileData.keybindings
+        $defaultExts = Get-ProfileExtensions -profile $defaultData
+        $profileExts = Get-ProfileExtensions -profile $profileData
+        $mergedExts = @($defaultExts) + @($profileExts) | Select-Object -Unique
+
+        $profileData = @{
+            settings = $mergedSettings
+            keybindings = $mergedKb
+            extensions = $mergedExts
+        }
+    }
 
     if ($mode -eq "replace") {
         Uninstall-AllExtensions
@@ -118,7 +134,7 @@ function Apply-Profile {
     }
 
     Write-Color "Installing extensions..." "Yellow"
-    $exts = Get-ProfileExtensions -profile $profileData
+    $exts = if ($profileData -is [hashtable]) { $profileData.extensions } else { Get-ProfileExtensions -profile $profileData }
     foreach ($ext in $exts) {
         if ([string]::IsNullOrWhiteSpace($ext) -eq $false) {
             Write-Host "Installing: $ext"
@@ -127,51 +143,6 @@ function Apply-Profile {
     }
 
     Write-Color "Profile '$profileName' successfully applied!`n" "Green"
-}
-
-function Sync-AllProfiles {
-    $defaultFile = Join-Path $ProfilesDir "Default.code-profile"
-    if (-not (Test-Path $defaultFile)) {
-        Write-Color "Error: Default.code-profile not found!" "Red"
-        exit 1
-    }
-
-    Write-Color "`nSynchronizing all profiles with Default profile..." "Cyan"
-    $defaultData = Get-Content -Raw -Path $defaultFile | ConvertFrom-Json
-
-    $profileFiles = Get-ChildItem -Path $ProfilesDir -Filter "*.code-profile"
-    foreach ($file in $profileFiles) {
-        if ($file.Name -ne "Default.code-profile") {
-            try {
-                $profileData = Get-Content -Raw -Path $file.FullName | ConvertFrom-Json
-                if ($null -eq $profileData) { continue }
-
-                $newSettings = Merge-Json -target $defaultData.settings -source $profileData.settings
-                $newKb = Merge-Json -target $defaultData.keybindings -source $profileData.keybindings
-                $newExtDefault = Get-ProfileExtensions -profile $defaultData
-                $newExtProfile = Get-ProfileExtensions -profile $profileData
-                $newExt = @($newExtDefault) + @($newExtProfile) | Select-Object -Unique
-
-                $profileData.settings = $newSettings
-                $profileData.keybindings = $newKb
-                $profileData.extensions = $newExt
-
-                # Keep the same top-level properties structure
-                $outputObj = @{
-                    name = $profileData.name
-                    settings = $profileData.settings
-                    keybindings = $profileData.keybindings
-                    extensions = $profileData.extensions
-                }
-
-                $outputObj | ConvertTo-Json -Depth 20 | Out-File -FilePath $file.FullName -Encoding UTF8
-                Write-Color "Synchronized: $($file.Name)" "Green"
-            } catch {
-                Write-Color "Skipping invalid profile: $($file.Name)" "Yellow"
-            }
-        }
-    }
-    Write-Color "All profiles synchronized!`n" "Green"
 }
 
 function Show-Menu {
@@ -238,13 +209,11 @@ function Interactive-Apply {
 while ($true) {
     $mainOptions = @(
         "Apply a Profile to VS Code",
-        "Sync all Profiles with Default Profile",
         "Exit"
     )
     $mainIdx = Show-Menu -Title "What would you like to do?" -Options $mainOptions
 
     Write-Host ""
     if ($mainIdx -eq 0) { Interactive-Apply }
-    elseif ($mainIdx -eq 1) { Sync-AllProfiles }
-    elseif ($mainIdx -eq 2) { Write-Host "Goodbye!"; exit 0 }
+    elseif ($mainIdx -eq 1) { Write-Host "Goodbye!"; exit 0 }
 }
