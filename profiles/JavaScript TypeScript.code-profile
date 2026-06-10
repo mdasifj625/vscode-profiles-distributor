@@ -62,6 +62,8 @@
 		"eg2.vscode-npm-script",
 		"antfu.browse-lite",
 		"yoavbls.pretty-ts-errors",
-		"Prisma.prisma"
+		"Prisma.prisma",
+		"expo.vscode-expo-tools",
+		"syler.sass-indented"
 	]
 }

@@ -63,7 +63,7 @@ Profiles are stored in `profiles/` as `.code-profile` files. Keep them lean!
 
 ## 🛠️ Included Profiles
 
--   **Default**: Base UI, terminal, and git configuration.
--   **JavaScript TypeScript**: Full-stack support (Node, React, Next.js, Prisma, Tailwind).
--   **Python**: Data science (Jupyter), modern linting (Ruff), and web frameworks.
--   **C C++**: Advanced IntelliSense (Clangd), CMake, and Doxygen.
+-   **Default**: Base UI, terminal, and git configuration. Includes **Docker**, **SonarLint**, **Live Server**, and **Path Intellisense** as universal productivity tools.
+-   **JavaScript TypeScript**: Full-stack support (Node, React, Next.js, Prisma, Tailwind). Includes **Expo Tools** for mobile and **Sass** support.
+-   **Python**: Data science (**Jupyter**), modern linting (**Ruff**), and web frameworks (Django/Jinja2).
+-   **C C++**: Advanced IntelliSense (**Clangd**), **CMake**, **Bazel**, and **Doxygen** documentation support.

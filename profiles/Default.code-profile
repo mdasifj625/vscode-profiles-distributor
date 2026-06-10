@@ -51,6 +51,13 @@
 		"redhat.vscode-yaml",
 		"streetsidesoftware.code-spell-checker",
 		"yzhang.markdown-all-in-one",
-		"Gruntfuggly.todo-tree"
+		"christian-kohler.path-intellisense",
+		"kamikillerto.vscode-colorize",
+		"foxundermoon.shell-format",
+		"ms-azuretools.vscode-docker",
+		"ms-vscode.live-server",
+		"wraith13.zoombar-vscode",
+		"george-alisson.html-preview-vscode",
+		"sonarsource.sonarlint-vscode"
 	]
 }
