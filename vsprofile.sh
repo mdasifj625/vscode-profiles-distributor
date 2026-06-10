@@ -59,16 +59,15 @@ if [ "$IS_WSL" = true ]; then
         WIN_USER=$(cmd.exe /c "echo %USERNAME%" 2>/dev/null | tr -d '\r')
         TARGETS_USER_DATA_PATH+=("/mnt/c/Users/$WIN_USER/AppData/Roaming/Code/User")
     fi
-    # Use code.exe to ensure we target the Windows side from WSL
-    if command -v code.exe &> /dev/null; then
-        TARGETS_CODE_CMD+=("code.exe")
-    else
-        TARGETS_CODE_CMD+=("code")
-    fi
+    if command -v code.exe &> /dev/null; then TARGETS_CODE_CMD+=("code.exe"); else TARGETS_CODE_CMD+=("code"); fi
 
-    # Target 2: WSL (Native Linux)
+    # Target 2: WSL (Check for VS Code Server or Native)
     TARGETS_NAME+=("WSL")
-    TARGETS_USER_DATA_PATH+=("$HOME/.config/Code/User")
+    if [ -d "$HOME/.vscode-server/data/User" ]; then
+        TARGETS_USER_DATA_PATH+=("$HOME/.vscode-server/data/User")
+    else
+        TARGETS_USER_DATA_PATH+=("$HOME/.config/Code/User")
+    fi
     TARGETS_CODE_CMD+=("code")
 elif [ "$(expr substr $(uname -s) 1 5)" == "MINGW" ] || [ "$(expr substr $(uname -s) 1 4)" == "MSYS" ]; then
     # Git Bash on Windows
@@ -93,6 +92,58 @@ for i in "${!TARGETS_NAME[@]}"; do
     [ ! -f "${TARGETS_USER_DATA_PATH[$i]}/settings.json" ] && echo "{}" > "${TARGETS_USER_DATA_PATH[$i]}/settings.json"
     [ ! -f "${TARGETS_USER_DATA_PATH[$i]}/keybindings.json" ] && echo "[]" > "${TARGETS_USER_DATA_PATH[$i]}/keybindings.json"
 done
+
+# Function to get native VS Code profile path from storage.json
+get_vscode_profile_path() {
+    local base_user_path=$1
+    local profile_name=$2
+    local storage_json="$base_user_path/globalStorage/storage.json"
+
+    if [ "$profile_name" == "Default" ]; then
+        echo "$base_user_path"
+        return
+    fi
+
+    # In WSL, named profiles are ALWAYS defined in the Windows host storage.json
+    # even if you are targeting the WSL side of VS Code.
+    if [ "$IS_WSL" = true ]; then
+        local win_appdata=$(cmd.exe /c "echo %APPDATA%" 2>/dev/null | tr -d '\r')
+        if [ -n "$win_appdata" ]; then
+            local win_path=$(wslpath "$win_appdata" 2>/dev/null)
+            [ -n "$win_path" ] && storage_json="$win_path/Code/User/globalStorage/storage.json"
+        fi
+    fi
+
+    if [ ! -f "$storage_json" ]; then return; fi
+
+    # Extract location and handle potential JSON errors
+    local location=$(jq -r --arg name "$profile_name" '
+        if .userDataProfiles == null then empty
+        else .userDataProfiles[] | select(.name == $name) | .location
+        end
+    ' "$storage_json" 2>/dev/null)
+    
+    if [ -n "$location" ] && [ "$location" != "null" ]; then
+        local path=""
+        
+        if [[ "$location" == file://* ]]; then
+            # Handle encoded URI (e.g. file:///c%3A/Users/...)
+            path=$(echo "$location" | sed 's/file:\/\/\///g; s/%3A/:/g; s/%20/ /g; s/%2F/\//g; s/%5C/\//g')
+            # Remove leading slash if it exists on Windows style paths (/c:/...)
+            [[ "$path" =~ ^/[a-zA-Z]: ]] && path=${path:1}
+            # Convert to WSL path if needed
+            if [ "$IS_WSL" = true ] && [[ "$path" =~ ^[a-zA-Z]: ]]; then
+                path=$(wslpath "$path" 2>/dev/null)
+            fi
+        else
+            # Relative location (relative to the Windows/Linux User directory)
+            local profile_base="$(dirname "$(dirname "$storage_json")")/profiles"
+            path="$profile_base/$location"
+        fi
+        
+        [ -d "$path" ] && echo "$path"
+    fi
+}
 
 # Function to get extensions from a profile safely
 get_profile_extensions() {
@@ -127,7 +178,7 @@ apply_profile() {
 
     echo -e "\n${CYAN}Applying Profile: $profile_name in $mode mode...${NC}"
 
-    # Prepare merged profile data (Inherit from Default if not applying Default itself)
+    # Prepare merged profile data
     local merged_profile=$(mktemp)
     if [ "$profile_name" != "Default" ] && [ -f "$default_file" ]; then
         echo -e "${YELLOW}Merging with Default profile...${NC}"
@@ -138,10 +189,11 @@ apply_profile() {
                 elif type == "object" and (.extensions | type) == "array" then [.extensions[] | if type=="object" then .id else . end]
                 else [] end;
 
-            (.[0] // {}) * (.[1] // {})
-            | .settings = ((.[0].settings // {}) * (.[1].settings // {}))
-            | .extensions = ((.[0].extensions | get_exts) + (.[1].extensions | get_exts) | unique)
-            | .keybindings = ((.[0].keybindings // []) + (.[1].keybindings // []) | unique)
+            .[0] as $default | .[1] as $profile |
+            ($default // {}) * ($profile // {})
+            | .settings = (($default.settings // {}) * ($profile.settings // {}))
+            | .extensions = (($default.extensions | get_exts) + ($profile.extensions | get_exts) | unique)
+            | .keybindings = (($default.keybindings // []) + ($profile.keybindings // []) | unique)
         ' "$default_file" "$profile_file" > "$merged_profile"
     else
         cat "$profile_file" > "$merged_profile"
@@ -150,19 +202,53 @@ apply_profile() {
     # Loop through each target (Windows and/or WSL/Linux/Mac)
     for i in "${!TARGETS_NAME[@]}"; do
         local TARGET_NAME="${TARGETS_NAME[$i]}"
-        local DATA_PATH="${TARGETS_USER_DATA_PATH[$i]}"
+        local BASE_DATA_PATH="${TARGETS_USER_DATA_PATH[$i]}"
         local CODE_CMD="${TARGETS_CODE_CMD[$i]}"
+        
+        echo -e "\n${YELLOW}Checking Environment: $TARGET_NAME...${NC}"
+
+        # Detect native VS Code profile path
+        local DATA_PATH=""
+        while [ -z "$DATA_PATH" ]; do
+            DATA_PATH=$(get_vscode_profile_path "$BASE_DATA_PATH" "$profile_name")
+            
+            if [ -z "$DATA_PATH" ]; then
+                echo -e "\n${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+                echo -e "${RED}⚠️  Profile '$profile_name' not found in VS Code ($TARGET_NAME).${NC}"
+                echo -e "${CYAN}Recommended Action:${NC}"
+                echo -e " 1. Open VS Code on your Windows host."
+                echo -e " 2. Go to ${YELLOW}File > Profiles > New Profile...${NC}"
+                echo -e " 3. Create a profile exactly named: ${GREEN}$profile_name${NC}"
+                echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+                
+                local guide_options=("Profile Created -- Continue" "Skip this target ($TARGET_NAME)" "Exit")
+                arrow_menu "What would you like to do?" user_idx "${guide_options[@]}"
+                
+                if [ "$user_idx" -eq 0 ]; then
+                    echo -e "${CYAN}Re-checking for profile...${NC}"
+                    continue # Re-run get_vscode_profile_path
+                elif [ "$user_idx" -eq 2 ]; then
+                    rm "$merged_profile"
+                    exit 0
+                else
+                    break # Skip this target
+                fi
+            fi
+        done
+
+        if [ -z "$DATA_PATH" ]; then continue; fi
+
         local SETTINGS_PATH="$DATA_PATH/settings.json"
         local KEYBINDINGS_PATH="$DATA_PATH/keybindings.json"
-
-        echo -e "\n${YELLOW}Targeting Environment: $TARGET_NAME...${NC}"
+        local PROFILE_FLAG=""
+        [ "$profile_name" != "Default" ] && PROFILE_FLAG="--profile $profile_name"
 
         if [ "$mode" == "replace" ]; then
-            echo -e "${YELLOW}[$TARGET_NAME] Uninstalling all current extensions...${NC}"
-            $CODE_CMD --list-extensions | while read -r ext; do
+            echo -e "${YELLOW}[$TARGET_NAME] Uninstalling extensions for profile '$profile_name'...${NC}"
+            $CODE_CMD $PROFILE_FLAG --list-extensions | while read -r ext; do
                 if [ -n "$ext" ]; then
                     echo "[$TARGET_NAME] Uninstalling: $ext"
-                    $CODE_CMD --uninstall-extension "$ext" --force >/dev/null 2>&1
+                    $CODE_CMD $PROFILE_FLAG --uninstall-extension "$ext" --force >/dev/null 2>&1
                 fi
             done
 
@@ -171,33 +257,30 @@ apply_profile() {
             echo -e "${GREEN}[$TARGET_NAME] Settings and Keybindings replaced.${NC}"
             
         elif [ "$mode" == "sync" ]; then
-            # Merge settings (Deep Merge)
             local temp_settings=$(mktemp)
             [ ! -s "$SETTINGS_PATH" ] && echo "{}" > "$SETTINGS_PATH"
             jq -s '(.[0] // {}) * (.[1] // {})' "$SETTINGS_PATH" <(get_profile_settings "$merged_profile") > "$temp_settings"
             mv "$temp_settings" "$SETTINGS_PATH"
             
-            # Merge keybindings (Array Concat & Unique)
             local temp_keybindings=$(mktemp)
             [ ! -s "$KEYBINDINGS_PATH" ] && echo "[]" > "$KEYBINDINGS_PATH"
             jq -s '((.[0] // []) + (.[1] // [])) | unique' "$KEYBINDINGS_PATH" <(get_profile_keybindings "$merged_profile") > "$temp_keybindings"
             mv "$temp_keybindings" "$KEYBINDINGS_PATH"
             
-            echo -e "${GREEN}[$TARGET_NAME] Settings and Keybindings merged safely.${NC}"
+            echo -e "${GREEN}[$TARGET_NAME] Settings merged safely.${NC}"
         fi
 
-        # Install extensions
-        echo -e "${YELLOW}[$TARGET_NAME] Installing extensions...${NC}"
+        echo -e "${YELLOW}[$TARGET_NAME] Installing extensions for profile '$profile_name'...${NC}"
         get_profile_extensions "$merged_profile" | while read -r ext; do
             if [ -n "$ext" ]; then
                 echo "[$TARGET_NAME] Installing: $ext"
-                $CODE_CMD --install-extension "$ext" --force >/dev/null 2>&1
+                $CODE_CMD $PROFILE_FLAG --install-extension "$ext" --force >/dev/null 2>&1
             fi
         done
     done
 
     rm "$merged_profile"
-    echo -e "${GREEN}Profile '$profile_name' successfully applied to all targets!${NC}\n"
+    echo -e "${GREEN}Profile '$profile_name' successfully applied!${NC}\n"
 }
 
 # Arrow Key Menu Function

@@ -2,19 +2,20 @@
 
 A lightweight tool to manage and distribute VS Code profiles across different environments. This project uses an **automatic inheritance model** to ensure a clean, maintainable, and non-redundant configuration.
 
-## 🏗️ Architecture: Automatic Inheritance
+## 🏗️ Architecture: Automatic Inheritance & Native Integration
 
-The system is designed around a **"Base & Extension"** philosophy. You never have to manually duplicate settings.
+The system is designed around a **"Base & Extension"** philosophy with **Native VS Code Profile Support**.
 
 ### How it works:
-1.  **Default Profile (`profiles/Default.code-profile`)**: This is your "Source of Truth." It contains universal settings (fonts, themes, terminal) and common extensions (GitLens, EditorConfig, Material Icons).
-2.  **Domain Profiles**: Profiles like `Python` or `JavaScript TypeScript` contain **only** domain-specific logic.
-3.  **The Auto-Merge**: When you apply any profile other than `Default`, the script automatically:
-    *   Loads all settings and extensions from `Default`.
-    *   Overlays the specific domain profile on top.
-    *   Installs the union of both extension lists.
+1.  **Default Profile (`profiles/Default.code-profile`)**: This is your "Source of Truth" for universal settings and extensions.
+2.  **Domain Profiles**: Profiles like `Python` or `JavaScript TypeScript` in this repo contain only domain-specific logic.
+3.  **Native Integration**: When you apply a profile:
+    *   The script **detects if the profile exists** in your native VS Code system (by auditing `storage.json`).
+    *   **Manual Guidance**: If the profile is missing from VS Code, the script will provide a clear guide and exactly what name to use. You can then create it manually in the VS Code UI and click **"Continue"** in the script to proceed.
+    *   **Targeted Application**: Once the native profile is detected, the script uses the `--profile` CLI flag to target that specific environment, ensuring your main "Default" setup remains untouched unless explicitly modified.
+4.  **The Auto-Merge**: The script automatically merges `Default` with the domain profile at runtime before applying.
 
-**Benefit**: Change your font size or theme in `Default.code-profile`, and it automatically updates across **all** your specialized profiles next time you apply them.
+**Benefit**: You get a clean, official VS Code profile system that is fully managed and synchronized via this repository.
 
 ## 🚀 Getting Started
 
@@ -29,15 +30,15 @@ The system is designed around a **"Base & Extension"** philosophy. You never hav
 #### Bash (Linux, WSL, macOS, Git Bash)
 ```bash
 chmod +x vsprofile.sh
-./vsprofile.sh
+./vsprofile.sh [profile-name]
 ```
-> **Note for WSL Users**: Running `vsprofile.sh` inside WSL will automatically detect both your **Windows host** and the **WSL instance**. It will apply settings and sync/replace extensions for both environments simultaneously, ensuring a consistent remote development experience.
+> **Note for WSL Users**: Running `vsprofile.sh` inside WSL automatically targets both your **Windows host** and the **WSL instance**. It will detect/create native profiles on both sides and keep them in sync.
 
 #### PowerShell (Windows)
 ```powershell
 .\vsprofile.ps1
 ```
-> **Note**: Running on native Windows (PowerShell or Git Bash) will only impact your Windows VS Code settings.
+> **Native Profile Detection**: If you select a profile from the repo that doesn't exist in your Windows VS Code setup, the script will offer to create it for you on the fly.
 
 ### Modes of Application
 

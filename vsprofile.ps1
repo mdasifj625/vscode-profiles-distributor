@@ -72,13 +72,65 @@ function Get-ProfileExtensions {
 }
 
 function Uninstall-AllExtensions {
+    param ($profileFlag)
     Write-Color "Uninstalling all current extensions..." "Yellow"
-    $extList = code --list-extensions
+    
+    $cmd = if ($profileFlag -ne "") { "code $profileFlag --list-extensions" } else { "code --list-extensions" }
+    $extList = iex $cmd
+    
     foreach ($ext in $extList) {
         if ([string]::IsNullOrWhiteSpace($ext) -eq $false) {
             Write-Host "Uninstalling: $ext"
-            $null = code --uninstall-extension $ext --force
+            if ($profileFlag -ne "") {
+                $null = iex "code $profileFlag --uninstall-extension $ext --force"
+            } else {
+                $null = code --uninstall-extension $ext --force
+            }
         }
+    }
+}
+
+function Get-VSCodeProfilePath {
+    param ($basePath, $profileName)
+    if ($profileName -eq "Default") { return $basePath }
+    
+    $storageJson = Join-Path $basePath "globalStorage" "storage.json"
+    # In WSL/Remote environments, storage.json might be shared or in a different location
+    if (-not (Test-Path $storageJson)) {
+        # Fallback for WSL targeting Windows
+        if ($env:WSL_DISTRO_NAME) {
+            $winAppData = cmd.exe /c "echo %APPDATA%" 2>$null
+            if ($winAppData) {
+                $storageJson = Join-Path ([System.IO.Path]::Combine((wslpath $winAppData.Trim()), "Code", "User")) "globalStorage" "storage.json"
+            }
+        }
+    }
+    
+    if (-not (Test-Path $storageJson)) { return $null }
+    
+    try {
+        $storage = Get-Content -Raw $storageJson | ConvertFrom-Json
+        if ($null -eq $storage.userDataProfiles) { return $null }
+        
+        $profile = $storage.userDataProfiles | Where-Object { $_.name -eq $profileName }
+        if ($null -eq $profile) { return $null }
+        
+        $uri = $profile.location
+        if ($uri -match "^file://") {
+            # Absolute URI
+            $path = [System.Uri]::UnescapeDataString($uri).Replace("file:///", "")
+            if ($path -match "^/[a-zA-Z]:") { $path = $path.Substring(1) }
+            # If in WSL, convert Windows path
+            if ($env:WSL_DISTRO_NAME -and $path -match "^[a-zA-Z]:") {
+                $path = wslpath $path
+            }
+            return $path
+        } else {
+            # Relative location (relative to the User/profiles directory)
+            return Join-Path $basePath "profiles" $uri
+        }
+    } catch {
+        return $null
     }
 }
 
@@ -92,7 +144,7 @@ function Apply-Profile {
     
     $profileData = Get-Content -Raw -Path $profileFile | ConvertFrom-Json
     
-    # Inherit from Default if not applying Default itself
+    # Inherit from Default
     if ($profileName -ne "Default" -and (Test-Path $defaultFile)) {
         Write-Color "Merging with Default profile..." "Yellow"
         $defaultData = Get-Content -Raw -Path $defaultFile | ConvertFrom-Json
@@ -110,35 +162,69 @@ function Apply-Profile {
         }
     }
 
+    # Detect native VS Code profile path
+    $dataPath = $null
+    while ($null -eq $dataPath) {
+        $dataPath = Get-VSCodeProfilePath -basePath $UserDataPath -profileName $profileName
+        
+        if ($null -eq $dataPath) {
+            Write-Host "`n" + ("=" * 60) -ForegroundColor Yellow
+            Write-Color "⚠️  Profile '$profileName' not found in VS Code system." "Red"
+            Write-Color "Recommended Action:" "Cyan"
+            Write-Host " 1. Open VS Code."
+            Write-Host " 2. Go to File > Profiles > New Profile..."
+            Write-Host " 3. Create a profile exactly named: " -NoNewline
+            Write-Host $profileName -ForegroundColor Green
+            Write-Host ("=" * 60) -ForegroundColor Yellow
+            
+            $guideOptions = @("Profile Created -- Continue", "Exit")
+            $profileChoice = Show-Menu -Title "`nWhat would you like to do?" -Options $guideOptions
+            if ($profileChoice -eq 0) {
+                Write-Color "Re-checking for profile..." "Cyan"
+                continue
+            } else {
+                return
+            }
+        }
+    }
+
+    $settingsPath = Join-Path $dataPath "settings.json"
+    $keybindingsPath = Join-Path $dataPath "keybindings.json"
+    $profileFlag = if ($profileName -eq "Default") { "" } else { "--profile $profileName" }
+
     if ($mode -eq "replace") {
-        Uninstall-AllExtensions
+        Uninstall-AllExtensions -profileFlag $profileFlag
 
         $settingsToSave = if ($null -ne $profileData.settings) { $profileData.settings } else { @{} }
-        $settingsToSave | ConvertTo-Json -Depth 20 | Out-File -FilePath $SettingsPath -Encoding UTF8
+        $settingsToSave | ConvertTo-Json -Depth 20 | Out-File -FilePath $settingsPath -Encoding UTF8
 
         $kbToSave = if ($null -ne $profileData.keybindings -and $profileData.keybindings -is [array]) { $profileData.keybindings } else { @() }
-        $kbToSave | ConvertTo-Json -Depth 20 | Out-File -FilePath $KeybindingsPath -Encoding UTF8
+        $kbToSave | ConvertTo-Json -Depth 20 | Out-File -FilePath $keybindingsPath -Encoding UTF8
 
         Write-Color "Settings and Keybindings replaced." "Green"
     } elseif ($mode -eq "sync") {
-        $currentSettings = Get-Content -Raw -Path $SettingsPath | ConvertFrom-Json
-        $currentKb = Get-Content -Raw -Path $KeybindingsPath | ConvertFrom-Json
+        $currentSettings = if (Test-Path $settingsPath) { Get-Content -Raw -Path $settingsPath | ConvertFrom-Json } else { @{} }
+        $currentKb = if (Test-Path $keybindingsPath) { Get-Content -Raw -Path $keybindingsPath | ConvertFrom-Json } else { @() }
         
         $newSettings = Merge-Json -target $currentSettings -source $profileData.settings
         $newKb = Merge-Json -target $currentKb -source $profileData.keybindings
 
-        $newSettings | ConvertTo-Json -Depth 20 | Out-File -FilePath $SettingsPath -Encoding UTF8
-        $newKb | ConvertTo-Json -Depth 20 | Out-File -FilePath $KeybindingsPath -Encoding UTF8
+        $newSettings | ConvertTo-Json -Depth 20 | Out-File -FilePath $settingsPath -Encoding UTF8
+        $newKb | ConvertTo-Json -Depth 20 | Out-File -FilePath $keybindingsPath -Encoding UTF8
 
         Write-Color "Settings and Keybindings merged safely." "Green"
     }
 
-    Write-Color "Installing extensions..." "Yellow"
+    Write-Color "Installing extensions for profile '$profileName'..." "Yellow"
     $exts = if ($profileData -is [hashtable]) { $profileData.extensions } else { Get-ProfileExtensions -profile $profileData }
     foreach ($ext in $exts) {
         if ([string]::IsNullOrWhiteSpace($ext) -eq $false) {
             Write-Host "Installing: $ext"
-            $null = code --install-extension $ext --force
+            if ($profileFlag -ne "") {
+                $null = iex "code $profileFlag --install-extension $ext --force"
+            } else {
+                $null = code --install-extension $ext --force
+            }
         }
     }
 
