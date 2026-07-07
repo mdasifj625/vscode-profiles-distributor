@@ -27,18 +27,26 @@ The system is designed around a **"Base & Extension"** philosophy with **Native 
 
 ### Usage
 
-#### Bash (Linux, WSL, macOS, Git Bash)
+#### Quick Install (Remote Execution)
+You can run the interactive installer directly from GitHub without cloning the repository:
 ```bash
-chmod +x vsprofile.sh
-./vsprofile.sh [profile-name]
+curl -sSL https://raw.githubusercontent.com/mdasifj625/vscode-profiles-distributor/main/install.sh | bash
 ```
-> **Note for WSL Users**: Running `vsprofile.sh` inside WSL automatically targets both your **Windows host** and the **WSL instance**. It will detect/create native profiles on both sides and keep them in sync.
+
+#### Bash (Linux, WSL, macOS, Git Bash)
+If you have cloned the repository locally:
+```bash
+chmod +x install.sh
+./install.sh
+```
+> **Note for WSL Users**: Running `install.sh` inside WSL will present an interactive menu allowing you to choose whether to install the profile to your **Windows host**, your **WSL instance**, or **Both**.
 
 #### PowerShell (Windows)
+If you have cloned the repository locally:
 ```powershell
-.\vsprofile.ps1
+.\install.ps1
 ```
-> **Native Profile Detection**: If you select a profile from the repo that doesn't exist in your Windows VS Code setup, the script will offer to create it for you on the fly.
+> **Native Profile Detection**: If you select a profile from the repo that doesn't exist in your VS Code setup, the script will guide you to create it on the fly.
 
 ### Modes of Application
 
@@ -66,5 +74,6 @@ Profiles are stored in `profiles/` as `.code-profile` files. Keep them lean!
 
 -   **Default**: Base UI, terminal, and git configuration. Includes **Docker**, **SonarLint**, **Live Server**, and **Path Intellisense** as universal productivity tools.
 -   **JavaScript TypeScript**: Full-stack support (Node, React, Next.js, Prisma, Tailwind). Includes **Expo Tools** for mobile and **Sass** support.
+-   **ReactNative**: Extends the JavaScript profile with native Android (Kotlin) and iOS (Swift) tooling, plus React Native debugging capabilities.
 -   **Python**: Data science (**Jupyter**), modern linting (**Ruff**), and web frameworks (Django/Jinja2).
 -   **C C++**: Advanced IntelliSense (**Clangd**), **CMake**, **Bazel**, and **Doxygen** documentation support.
