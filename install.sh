@@ -33,8 +33,31 @@ fi
 
 PROFILES_DIR="$(pwd)/profiles"
 if [ ! -d "$PROFILES_DIR" ]; then
-    echo -e "${RED}Error: Profiles directory not found at $PROFILES_DIR${NC}"
-    exit 1
+    echo -e "${YELLOW}Local 'profiles' directory not found. Assuming remote execution.${NC}"
+    echo -e "${CYAN}Downloading repository to temporary directory...${NC}"
+    
+    TMP_DIR=$(mktemp -d)
+    REPO_URL="https://github.com/mdasifj625/vscode-profiles-distributor/archive/refs/heads/main.tar.gz"
+    
+    if command -v curl &> /dev/null; then
+        curl -sSL "$REPO_URL" | tar -xz -C "$TMP_DIR"
+    elif command -v wget &> /dev/null; then
+        wget -qO- "$REPO_URL" | tar -xz -C "$TMP_DIR"
+    else
+        echo -e "${RED}Error: Neither curl nor wget is installed. Cannot download profiles.${NC}"
+        exit 1
+    fi
+    
+    # The tarball extracts to a folder named vscode-profiles-distributor-main
+    PROFILES_DIR="$TMP_DIR/vscode-profiles-distributor-main/profiles"
+    
+    if [ ! -d "$PROFILES_DIR" ]; then
+        echo -e "${RED}Error: Failed to download or extract profiles.${NC}"
+        exit 1
+    fi
+    
+    # Set up cleanup trap to remove temp dir on exit
+    trap 'rm -rf "$TMP_DIR"' EXIT
 fi
 
 # Arrow Key Menu Function
