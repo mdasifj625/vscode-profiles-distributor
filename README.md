@@ -30,11 +30,11 @@ The system is designed around a **"Base & Extension"** philosophy with **Native 
 #### Quick Install (Remote Execution)
 You can run the interactive installer directly from GitHub without cloning the repository:
 ```bash
-curl -sSL https://raw.githubusercontent.com/mdasifj625/vscode-profiles-distributor/main/install.sh | bash
+bash -c "$(curl -sSL https://raw.githubusercontent.com/mdasifj625/vscode-profiles-distributor/main/install.sh)"
 ```
 > **Note:** If you experience network issues or a `Connection reset by peer` error, you can use the CDN mirror fallback:
 > ```bash
-> curl -sSL https://cdn.jsdelivr.net/gh/mdasifj625/vscode-profiles-distributor@main/install.sh | bash
+> bash -c "$(curl -sSL https://cdn.jsdelivr.net/gh/mdasifj625/vscode-profiles-distributor@main/install.sh)"
 > ```
 
 #### Bash (Linux, WSL, macOS, Git Bash)
