@@ -37,6 +37,51 @@ if [ ! -d "$PROFILES_DIR" ]; then
     exit 1
 fi
 
+# Arrow Key Menu Function
+arrow_menu() {
+    local prompt="$1" outvar="$2"
+    shift 2
+    local options=("$@")
+    local cur=0
+    local count=${#options[@]}
+    local key
+
+    tput civis # hide cursor
+    echo -e "${CYAN}$prompt${NC}"
+    
+    # Save cursor position
+    tput sc
+
+    while true; do
+        tput rc # restore cursor position
+        for ((i=0; i<count; i++)); do
+            # clear line
+            echo -en "\e[2K\r"
+            if [ "$i" -eq "$cur" ]; then
+                echo -e "  ${GREEN}❯ ${options[$i]}${NC}"
+            else
+                echo -e "    ${options[$i]}"
+            fi
+        done
+        
+        read -rsn1 key
+        if [[ $key == $'\x1b' ]]; then
+            read -rsn2 key
+            if [[ $key == "[A" ]]; then # Up
+                ((cur--))
+                ((cur < 0)) && cur=$((count - 1))
+            elif [[ $key == "[B" ]]; then # Down
+                ((cur++))
+                ((cur >= count)) && cur=0
+            fi
+        elif [[ $key == "" ]]; then # Enter
+            break
+        fi
+    done
+    tput cnorm # restore cursor
+    eval $outvar="${cur}"
+}
+
 # Detect OS and Populate Targets
 TARGETS_NAME=()
 TARGETS_USER_DATA_PATH=()
@@ -48,27 +93,33 @@ if grep -qEi "(Microsoft|WSL)" /proc/version &> /dev/null; then
 fi
 
 if [ "$IS_WSL" = true ]; then
-    echo -e "${YELLOW}Detected WSL environment. Targeting both Windows and WSL environments.${NC}"
+    echo -e "${YELLOW}Detected WSL environment.${NC}"
+    wsl_options=("Both Windows and WSL" "Windows only" "WSL only")
+    arrow_menu "Where would you like to install the profile?" wsl_choice_idx "${wsl_options[@]}"
     
-    # Target 1: Windows
-    TARGETS_NAME+=("Windows")
-    WIN_APPDATA=$(cmd.exe /c "echo %APPDATA%" 2>/dev/null | tr -d '\r')
-    if [ -n "$WIN_APPDATA" ] && command -v wslpath &> /dev/null; then
-        TARGETS_USER_DATA_PATH+=("$(wslpath "$WIN_APPDATA")/Code/User")
-    else
-        WIN_USER=$(cmd.exe /c "echo %USERNAME%" 2>/dev/null | tr -d '\r')
-        TARGETS_USER_DATA_PATH+=("/mnt/c/Users/$WIN_USER/AppData/Roaming/Code/User")
+    if [ "$wsl_choice_idx" -eq 0 ] || [ "$wsl_choice_idx" -eq 1 ]; then
+        # Target Windows
+        TARGETS_NAME+=("Windows")
+        WIN_APPDATA=$(cmd.exe /c "echo %APPDATA%" 2>/dev/null | tr -d '\r')
+        if [ -n "$WIN_APPDATA" ] && command -v wslpath &> /dev/null; then
+            TARGETS_USER_DATA_PATH+=("$(wslpath "$WIN_APPDATA")/Code/User")
+        else
+            WIN_USER=$(cmd.exe /c "echo %USERNAME%" 2>/dev/null | tr -d '\r')
+            TARGETS_USER_DATA_PATH+=("/mnt/c/Users/$WIN_USER/AppData/Roaming/Code/User")
+        fi
+        if command -v code.exe &> /dev/null; then TARGETS_CODE_CMD+=("code.exe"); else TARGETS_CODE_CMD+=("code"); fi
     fi
-    if command -v code.exe &> /dev/null; then TARGETS_CODE_CMD+=("code.exe"); else TARGETS_CODE_CMD+=("code"); fi
-
-    # Target 2: WSL (Check for VS Code Server or Native)
-    TARGETS_NAME+=("WSL")
-    if [ -d "$HOME/.vscode-server/data/User" ]; then
-        TARGETS_USER_DATA_PATH+=("$HOME/.vscode-server/data/User")
-    else
-        TARGETS_USER_DATA_PATH+=("$HOME/.config/Code/User")
+    
+    if [ "$wsl_choice_idx" -eq 0 ] || [ "$wsl_choice_idx" -eq 2 ]; then
+        # Target WSL
+        TARGETS_NAME+=("WSL")
+        if [ -d "$HOME/.vscode-server/data/User" ]; then
+            TARGETS_USER_DATA_PATH+=("$HOME/.vscode-server/data/User")
+        else
+            TARGETS_USER_DATA_PATH+=("$HOME/.config/Code/User")
+        fi
+        TARGETS_CODE_CMD+=("code")
     fi
-    TARGETS_CODE_CMD+=("code")
 elif [ "$(expr substr $(uname -s) 1 5)" == "MINGW" ] || [ "$(expr substr $(uname -s) 1 4)" == "MSYS" ]; then
     # Git Bash on Windows
     TARGETS_NAME+=("Windows")
@@ -283,50 +334,6 @@ apply_profile() {
     echo -e "${GREEN}Profile '$profile_name' successfully applied!${NC}\n"
 }
 
-# Arrow Key Menu Function
-arrow_menu() {
-    local prompt="$1" outvar="$2"
-    shift 2
-    local options=("$@")
-    local cur=0
-    local count=${#options[@]}
-    local key
-
-    tput civis # hide cursor
-    echo -e "${CYAN}$prompt${NC}"
-    
-    # Save cursor position
-    tput sc
-
-    while true; do
-        tput rc # restore cursor position
-        for ((i=0; i<count; i++)); do
-            # clear line
-            echo -en "\e[2K\r"
-            if [ "$i" -eq "$cur" ]; then
-                echo -e "  ${GREEN}❯ ${options[$i]}${NC}"
-            else
-                echo -e "    ${options[$i]}"
-            fi
-        done
-        
-        read -rsn1 key
-        if [[ $key == $'\x1b' ]]; then
-            read -rsn2 key
-            if [[ $key == "[A" ]]; then # Up
-                ((cur--))
-                ((cur < 0)) && cur=$((count - 1))
-            elif [[ $key == "[B" ]]; then # Down
-                ((cur++))
-                ((cur >= count)) && cur=0
-            fi
-        elif [[ $key == "" ]]; then # Enter
-            break
-        fi
-    done
-    tput cnorm # restore cursor
-    eval $outvar="${cur}"
-}
 
 interactive_apply() {
     # Gather profiles

@@ -1,0 +1,80 @@
+{
+	"name": "ReactNative",
+	"settings": {
+		"editor.defaultFormatter": "esbenp.prettier-vscode",
+		"[javascript]": {
+			"editor.defaultFormatter": "esbenp.prettier-vscode",
+			"editor.formatOnSave": true
+		},
+		"[typescript]": {
+			"editor.defaultFormatter": "esbenp.prettier-vscode",
+			"editor.formatOnSave": true
+		},
+		"[javascriptreact]": {
+			"editor.defaultFormatter": "esbenp.prettier-vscode",
+			"editor.formatOnSave": true,
+			"editor.codeActionsOnSave": {
+				"source.fixAll.eslint": "explicit"
+			}
+		},
+		"[typescriptreact]": {
+			"editor.defaultFormatter": "esbenp.prettier-vscode",
+			"editor.formatOnSave": true,
+			"editor.codeActionsOnSave": {
+				"source.fixAll.eslint": "explicit"
+			}
+		},
+		"[kotlin]": {
+			"editor.defaultFormatter": "mathiasfrohlich.Kotlin",
+			"editor.formatOnSave": true
+		},
+		"[swift]": {
+			"editor.defaultFormatter": "sswg.swift-lang",
+			"editor.formatOnSave": true
+		},
+		"javascript.updateImportsOnFileMove.enabled": "always",
+		"typescript.updateImportsOnFileMove.enabled": "always",
+		"javascript.suggest.autoImports": true,
+		"typescript.suggest.autoImports": true,
+		"npm.packageManager": "npm",
+		"eslint.validate": [
+			"javascript",
+			"javascriptreact",
+			"typescript",
+			"typescriptreact"
+		],
+		"tailwindCSS.includeLanguages": {
+			"typescriptreact": "html",
+			"javascriptreact": "html"
+		},
+		"react-native.packager.port": 8081
+	},
+	"keybindings": [],
+	"extensions": [
+		"dbaeumer.vscode-eslint",
+		"esbenp.prettier-vscode",
+		"bradlc.vscode-tailwindcss",
+		"christian-kohler.npm-intellisense",
+		"wix.vscode-import-cost",
+		"orta.vscode-jest",
+		"dsznajder.es7-react-js-snippets",
+		"formulahendry.auto-rename-tag",
+		"jasonnutter.search-node-modules",
+		"digitalbrainstem.javascript-ejs-support",
+		"ecmel.vscode-html-css",
+		"ms-vscode.vscode-typescript-next",
+		"heybourn.headwind",
+		"meganrogge.template-string-converter",
+		"standard.vscode-standard",
+		"amodio.tsl-problem-matcher",
+		"antfu.browse-lite",
+		"yoavbls.pretty-ts-errors",
+		"Prisma.prisma",
+		"expo.vscode-expo-tools",
+		"syler.sass-indented",
+		"msjsdiag.vscode-react-native",
+		"mathiasfrohlich.Kotlin",
+		"fwcd.kotlin",
+		"sswg.swift-lang"
+	]
+}
