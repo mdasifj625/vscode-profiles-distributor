@@ -87,9 +87,13 @@ arrow_menu() {
             fi
         done
         
-        read -rsn1 key
+        if ! read -t 10 -rsn1 key < /dev/tty 2>/dev/null; then
+            # Timeout or no tty available, auto-select current option
+            break
+        fi
+        
         if [[ $key == $'\x1b' ]]; then
-            read -rsn2 key
+            read -rsn2 key < /dev/tty 2>/dev/null
             if [[ $key == "[A" ]]; then # Up
                 ((cur--))
                 ((cur < 0)) && cur=$((count - 1))
